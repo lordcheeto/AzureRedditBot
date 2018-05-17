@@ -39,7 +39,7 @@ namespace AzureRedditBot
             WebAgent.UserAgent = UserAgent;
             var reddit = new Reddit(webAgent, true);
             var subreddit = reddit.GetSubreddit(Subreddit);
-            var stream = subreddit.CommentStream;
+            var stream = subreddit.CommentStream.Take(25);
 
             // Regex expressions.
             Regex whitelist = new Regex(Whitelist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
