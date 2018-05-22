@@ -1,9 +1,8 @@
-using System;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Host;
-using RedditSharp;
-using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
+using RedditSharp;
+using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -12,7 +11,12 @@ namespace AzureRedditBot
     public static class Monitor
     {
         [FunctionName("Monitor")]
-        public static void Run([TimerTrigger("0 */5 * * * *")]TimerInfo myTimer, TraceWriter log)
+        public static void Run(
+            [TimerTrigger("0 */5 * * * *")]TimerInfo myTimer, 
+            [Table("comments")] CloudTable commentsTable,
+            [Table("remarks")] CloudTable remarksTable,
+            [Table("links")] CloudTable linksTable,
+            TraceWriter log)
         {
             // Pull settings from config.
             var ConnectionString = Environment.GetEnvironmentVariable("ConnectionString");
@@ -26,13 +30,6 @@ namespace AzureRedditBot
             var Blacklist = Environment.GetEnvironmentVariable("Blacklist");
             var UserBlacklist = Environment.GetEnvironmentVariable("UserBlacklist").Split(',');
             var ThreadTimeout = Int32.Parse(Environment.GetEnvironmentVariable("ThreadTimeout"));
-
-            // Uses Azure Storage tables to store comments, remarks, and seen links.
-            CloudStorageAccount account = CloudStorageAccount.Parse(ConnectionString);
-            var tableClient = account.CreateCloudTableClient();
-            var commentsTable = tableClient.GetTableReference("comments");
-            var remarksTable = tableClient.GetTableReference("remarks");
-            var linksTable = tableClient.GetTableReference("links");
 
             // Connect to Reddit.
             var webAgent = new BotWebAgent(RedditUsername, RedditPassword, RedditClientID, RedditClientSecret, "http://localhost");
