@@ -34,7 +34,7 @@ namespace AzureRedditBot
             // Connect to Reddit.
             var webAgent = new BotWebAgent(RedditUsername, RedditPassword, RedditClientID, RedditClientSecret, "http://localhost");
             WebAgent.UserAgent = UserAgent;
-            var reddit = new Reddit(webAgent, true);
+            var reddit = new Reddit(webAgent, false);
             var subreddit = reddit.GetSubreddit(Subreddit);
             var stream = subreddit.CommentStream.Take(25);
 
@@ -74,6 +74,9 @@ namespace AzureRedditBot
                     string link = links.Result.ElementAt(rand.Next(links.Result.Count())).Uri;
 
                     log.Info($"Commenting! [{remark}]({link})");
+
+                    if (reddit.User == null)
+                        reddit.InitOrUpdateUser();
 
                     comment.Reply($"[{remark}]({link})");
 
