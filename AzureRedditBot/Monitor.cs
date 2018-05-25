@@ -1,5 +1,5 @@
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Table;
 using RedditSharp;
 using System;
@@ -16,8 +16,10 @@ namespace AzureRedditBot
             [Table("comments")] CloudTable commentsTable,
             [Table("remarks")] CloudTable remarksTable,
             [Table("links")] CloudTable linksTable,
-            TraceWriter log)
+            ILogger logger)
         {
+            logger.LogInformation("Executing with version={version}", typeof(Monitor).Assembly.GetName().Version);
+
             // Pull settings from config.
             var ConnectionString = Environment.GetEnvironmentVariable("ConnectionString");
             var RedditUsername = Environment.GetEnvironmentVariable("RedditUsername");
@@ -50,7 +52,7 @@ namespace AzureRedditBot
             // Comment stream will get all new comments as they are posted.
             foreach (var comment in stream)
             {
-                log.Info(($"Incoming comment: {comment.AuthorName} - {comment.Body}"));
+                logger.LogDebug("Incoming comment with id={id}: {authorName} - {body}", comment.Id, comment.AuthorName, comment.Body);
 
                 // Continue if comment doesn't match configs.
                 if (!whitelist.IsMatch(comment.Body) || blacklist.IsMatch(comment.Body) || comment.AuthorName == RedditUsername || UserBlacklist.Contains(comment.AuthorName))
@@ -73,7 +75,7 @@ namespace AzureRedditBot
                     string remark = remarks.Result.ElementAt(rand.Next(remarks.Result.Count())).Remark;
                     string link = links.Result.ElementAt(rand.Next(links.Result.Count())).Uri;
 
-                    log.Info($"Commenting! [{remark}]({link})");
+                    logger.LogInformation("Replying to comment with id={id}. [{remark}]({link})", comment.Id, remark, link);
 
                     if (reddit.User == null)
                         reddit.InitOrUpdateUser();
