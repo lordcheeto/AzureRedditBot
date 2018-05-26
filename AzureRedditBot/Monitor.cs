@@ -12,7 +12,7 @@ namespace AzureRedditBot
     {
         [FunctionName("Monitor")]
         public static void Run(
-            [TimerTrigger("0 */5 * * * *")]TimerInfo myTimer, 
+            [TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, 
             [Table("comments")] CloudTable commentsTable,
             [Table("remarks")] CloudTable remarksTable,
             [Table("links")] CloudTable linksTable,
