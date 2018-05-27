@@ -12,7 +12,7 @@ namespace AzureRedditBot
     {
         [FunctionName("Monitor")]
         public static void Run(
-            [TimerTrigger("0 */1 * * * *")]TimerInfo myTimer,
+            [TimerTrigger("0 */1 * * * *")]TimerInfo timer,
             [Table("comments")] CloudTable commentsTable,
             [Table("remarks")] CloudTable remarksTable,
             [Table("links")] CloudTable linksTable,
@@ -22,7 +22,6 @@ namespace AzureRedditBot
             logger.LogInformation("Executing with version={version}", typeof(Monitor).Assembly.GetName().Version);
 
             // Pull settings from config.
-            var ConnectionString = Environment.GetEnvironmentVariable("ConnectionString");
             var RedditUsername = Environment.GetEnvironmentVariable("RedditUsername");
             var RedditPassword = Environment.GetEnvironmentVariable("RedditPassword");
             var RedditClientID = Environment.GetEnvironmentVariable("RedditClientID");
