@@ -12,10 +12,11 @@ namespace AzureRedditBot
     {
         [FunctionName("Monitor")]
         public static void Run(
-            [TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, 
+            [TimerTrigger("0 */1 * * * *")]TimerInfo myTimer,
             [Table("comments")] CloudTable commentsTable,
             [Table("remarks")] CloudTable remarksTable,
             [Table("links")] CloudTable linksTable,
+            [Table("state")] CloudTable stateTable,
             ILogger logger)
         {
             logger.LogInformation("Executing with version={version}", typeof(Monitor).Assembly.GetName().Version);
@@ -33,21 +34,22 @@ namespace AzureRedditBot
             var UserBlacklist = Environment.GetEnvironmentVariable("UserBlacklist").Split(',');
             var ThreadTimeout = Int32.Parse(Environment.GetEnvironmentVariable("ThreadTimeout"));
 
+            // Partitions tables based on the bot's username.
+            string partition = $"PartitionKey eq '{RedditUsername}'";
+
             // Connect to Reddit.
             var webAgent = new BotWebAgent(RedditUsername, RedditPassword, RedditClientID, RedditClientSecret, "http://localhost");
             WebAgent.UserAgent = UserAgent;
             var reddit = new Reddit(webAgent, false);
             var subreddit = reddit.GetSubreddit(Subreddit);
-            var stream = subreddit.CommentStream.Take(25);
+            var state = stateTable.ExecuteQuerySegmentedAsync(new TableQuery<StateEntity>().Where(partition), null).Result.ToDictionary(x => x.RowKey);
+            var stream = subreddit.Comments.TakeWhile(x => x.CreatedUTC > DateTimeOffset.Parse(state["LastUpdated"].Value));
 
             // Regex expressions.
             Regex whitelist = new Regex(Whitelist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
             Regex blacklist = new Regex(Blacklist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
             Random rand = new Random();
-
-            // Partitions tables based on the bot's username.
-            string partition = $"PartitionKey eq '{RedditUsername}'";
 
             // Comment stream will get all new comments as they are posted.
             foreach (var comment in stream)
@@ -86,6 +88,15 @@ namespace AzureRedditBot
                     var op = TableOperation.Insert(new CommentEntity(comment.LinkId, comment.FullName));
                     commentsTable.ExecuteAsync(op);
                 }
+            }
+
+            // Update the LastUpdated state based on the creation time of the newest comment.
+            var newest = stream.FirstOrDefault();
+            if(newest != null)
+            {
+                state["LastUpdated"].Value = newest.CreatedUTC.ToString();
+                var op = TableOperation.Replace(state["LastUpdated"]);
+                stateTable.ExecuteAsync(op);
             }
         }
     }
