@@ -31,7 +31,7 @@ namespace AzureRedditBot
             var Blacklist = Environment.GetEnvironmentVariable("Blacklist");
             var UserBlacklist = Environment.GetEnvironmentVariable("UserBlacklist").Split(',');
             var ThreadTimeout = Int32.Parse(Environment.GetEnvironmentVariable("ThreadTimeout"));
-            var TimerSlack = Int32.Parse(Environment.GetEnvironmentVariable("TimerDuration"));
+            var TimerSlack = Int32.Parse(Environment.GetEnvironmentVariable("TimerSlack"));
             
             // Connect to Reddit.
             var webAgent = new BotWebAgent(RedditUsername, RedditPassword, RedditClientID, RedditClientSecret, "http://localhost");
