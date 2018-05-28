@@ -16,11 +16,10 @@ namespace AzureRedditBot
             [Table("comments")] CloudTable commentsTable,
             [Table("remarks")] CloudTable remarksTable,
             [Table("links")] CloudTable linksTable,
-            [Table("state")] CloudTable stateTable,
             ILogger logger)
         {
             logger.LogInformation("Executing with version={version}", typeof(Monitor).Assembly.GetName().Version);
-
+            
             // Pull settings from config.
             var RedditUsername = Environment.GetEnvironmentVariable("RedditUsername");
             var RedditPassword = Environment.GetEnvironmentVariable("RedditPassword");
@@ -32,25 +31,26 @@ namespace AzureRedditBot
             var Blacklist = Environment.GetEnvironmentVariable("Blacklist");
             var UserBlacklist = Environment.GetEnvironmentVariable("UserBlacklist").Split(',');
             var ThreadTimeout = Int32.Parse(Environment.GetEnvironmentVariable("ThreadTimeout"));
-
-            // Partitions tables based on the bot's username.
-            string partition = $"PartitionKey eq '{RedditUsername}'";
-
+            var TimerSlack = Int32.Parse(Environment.GetEnvironmentVariable("TimerDuration"));
+            
             // Connect to Reddit.
             var webAgent = new BotWebAgent(RedditUsername, RedditPassword, RedditClientID, RedditClientSecret, "http://localhost");
             WebAgent.UserAgent = UserAgent;
             var reddit = new Reddit(webAgent, false);
             var subreddit = reddit.GetSubreddit(Subreddit);
-            var state = stateTable.ExecuteQuerySegmentedAsync(new TableQuery<StateEntity>().Where(partition), null).Result;
-            var stream = subreddit.Comments.TakeWhile(x => x.CreatedUTC > DateTimeOffset.Parse(state.ElementAt(0).Value));
 
+            // Retrieve comments that have been posted since the last execution, plus some slack.
+            var stream = subreddit.Comments.TakeWhile(x => x.CreatedUTC > timer.ScheduleStatus.Last - TimeSpan.FromSeconds(TimerSlack));
+            
             // Regex expressions.
             Regex whitelist = new Regex(Whitelist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
             Regex blacklist = new Regex(Blacklist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
             Random rand = new Random();
 
-            // Comment stream will get all new comments as they are posted.
+            // Filter string for table query; partitions tables based on the bot's username.
+            string partition = $"PartitionKey eq '{RedditUsername}'";
+
             foreach (var comment in stream)
             {
                 logger.LogDebug("Incoming comment with id={id}: {authorName} - {body}", comment.Id, comment.AuthorName, comment.Body);
@@ -65,7 +65,7 @@ namespace AzureRedditBot
                 // Determine if we've seen this thread, seen this comment, and whether we have timed out.
                 bool seenThread = comments.Result.Count() > 0;
                 bool seenComment = comments.Result.Count(x => x.RowKey == comment.FullName) > 0;
-                bool timedout = seenThread && (DateTime.Now - comments.Result.Last().Timestamp).TotalMinutes > ThreadTimeout;
+                bool timedout = seenThread && (DateTimeOffset.UtcNow - comments.Result.Last().Timestamp).TotalSeconds > ThreadTimeout;
 
                 if ((timedout || !seenThread) && !seenComment)
                 {
@@ -87,15 +87,6 @@ namespace AzureRedditBot
                     var op = TableOperation.Insert(new CommentEntity(comment.LinkId, comment.FullName));
                     commentsTable.ExecuteAsync(op);
                 }
-            }
-
-            // Update the LastUpdated state based on the creation time of the newest comment.
-            var newest = stream.FirstOrDefault();
-            if(newest != null)
-            {
-                state.ElementAt(0).Value = newest.CreatedUTC.ToString();
-                var op = TableOperation.Replace(state.ElementAt(0));
-                stateTable.ExecuteAsync(op);
             }
         }
     }
