@@ -93,8 +93,8 @@ namespace AzureRedditBot
             var newest = stream.FirstOrDefault();
             if(newest != null)
             {
-                state["LastUpdated"].Value = newest.CreatedUTC.ToString();
-                var op = TableOperation.Replace(state["LastUpdated"]);
+                state.ElementAt(0).Value = newest.CreatedUTC.ToString();
+                var op = TableOperation.Replace(state.ElementAt(0));
                 stateTable.ExecuteAsync(op);
             }
         }
