@@ -41,8 +41,8 @@ namespace AzureRedditBot
             WebAgent.UserAgent = UserAgent;
             var reddit = new Reddit(webAgent, false);
             var subreddit = reddit.GetSubreddit(Subreddit);
-            var state = stateTable.ExecuteQuerySegmentedAsync(new TableQuery<StateEntity>().Where(partition), null).Result.ToDictionary(x => x.RowKey);
-            var stream = subreddit.Comments.TakeWhile(x => x.CreatedUTC > DateTimeOffset.Parse(state["LastUpdated"].Value));
+            var state = stateTable.ExecuteQuerySegmentedAsync(new TableQuery<StateEntity>().Where(partition), null).Result;
+            var stream = subreddit.Comments.TakeWhile(x => x.CreatedUTC > DateTimeOffset.Parse(state.ElementAt(0).Value));
 
             // Regex expressions.
             Regex whitelist = new Regex(Whitelist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
