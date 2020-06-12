@@ -27,9 +27,9 @@ namespace AzureRedditBot
             var RedditClientSecret = Environment.GetEnvironmentVariable("RedditClientSecret");
             var UserAgent = Environment.GetEnvironmentVariable("UserAgent");
             var Subreddit = Environment.GetEnvironmentVariable("Subreddit");
-            var Whitelist = Environment.GetEnvironmentVariable("Whitelist");
-            var Blacklist = Environment.GetEnvironmentVariable("Blacklist");
-            var UserBlacklist = Environment.GetEnvironmentVariable("UserBlacklist").Split(',');
+            var SearchPattern = Environment.GetEnvironmentVariable("SearchPattern");
+            var IgnorePattern = Environment.GetEnvironmentVariable("IgnorePattern");
+            var UserIgnore = Environment.GetEnvironmentVariable("UserIgnore").Split(',');
             var ThreadTimeout = Int32.Parse(Environment.GetEnvironmentVariable("ThreadTimeout"));
             var TimerSlack = Int32.Parse(Environment.GetEnvironmentVariable("TimerSlack"));
             
@@ -43,8 +43,8 @@ namespace AzureRedditBot
             var stream = subreddit.Comments.TakeWhile(x => x.CreatedUTC > timer.ScheduleStatus.Last - TimeSpan.FromSeconds(TimerSlack));
             
             // Regex expressions.
-            Regex whitelist = new Regex(Whitelist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
-            Regex blacklist = new Regex(Blacklist, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            Regex search = new Regex(SearchPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            Regex ignore = new Regex(IgnorePattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
             Random rand = new Random();
 
@@ -56,7 +56,7 @@ namespace AzureRedditBot
                 logger.LogDebug("Incoming comment with id={id}: {authorName} - {body}", comment.Id, comment.AuthorName, comment.Body);
 
                 // Continue if comment doesn't match configs.
-                if (!whitelist.IsMatch(comment.Body) || blacklist.IsMatch(comment.Body) || comment.AuthorName == RedditUsername || UserBlacklist.Contains(comment.AuthorName))
+                if (!search.IsMatch(comment.Body) || ignore.IsMatch(comment.Body) || comment.AuthorName == RedditUsername || UserIgnore.Contains(comment.AuthorName))
                     continue;
 
                 // Retrieve comments seen from this link.
